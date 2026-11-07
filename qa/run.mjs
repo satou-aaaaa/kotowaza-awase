@@ -273,6 +273,16 @@ try {
     await p.evaluate(() => window.__kw.home());
     await p.click("#go-dex");
     check("ことわざ帳：出会ったことわざは意味つき、まだのものは「？？？」（点線）", (await p.textContent(".res")).includes("猫に小判") && (await p.locator(".res .no").count()) > 0);
+    check("ことわざ帳：なかまのボタンに出会った数が出る", (await p.textContent("#cats")).includes("/"));
+    await p.fill("#q", "ネコ");
+    check("ことわざ帳：さがす（カタカナでも読みで見つかる）", (await p.textContent("#dexres")).includes("猫に小判") && (await p.locator("#dexres .no").count()) === 0 && (await p.isHidden("#cats")));
+    await p.fill("#q", "値打ち");
+    check("ことわざ帳：意味でもさがせる", (await p.textContent("#dexres")).includes("猫に小判"));
+    const unmet = await p.evaluate(() => { const G = window.__kw.G, s = window.__kw.load(), m = new Set(Object.keys(s.seen).map((i) => G.full(G.BY.get(+i)))); return G.LIST.find((y) => !m.has(G.full(y)) && y.yomi.length > 8).yomi; });
+    await p.fill("#q", unmet);
+    check("ことわざ帳：まだ出会っていないことわざは、さがしても出さない", (await p.locator("#dexres > div").count()) === 0 && (await p.textContent("#qn")).includes("見つかりません"));
+    await p.fill("#q", "");
+    check("ことわざ帳：消すと元の一覧に戻る", (await p.isVisible("#cats")) && (await p.textContent(".res")).includes("猫に小判"));
     await p.close(); }
 
   // 全部一度で解けた日は Ko-fi の1行（今日の5問を初めて終えたときだけ）

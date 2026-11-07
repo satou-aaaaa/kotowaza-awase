@@ -93,6 +93,7 @@ button.sub:disabled{color:var(--ink2);border-style:dashed;cursor:default}
 .res button{cursor:pointer;width:100%}
 .res .no{color:var(--ink2);border-style:dashed}
 .res small{color:var(--ink2);font-size:12px;display:block}
+.find{box-sizing:border-box;width:100%;min-height:48px;font:inherit;font-size:17px;padding:8px 12px;border:2px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink)}
 .cats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .cats button{min-height:60px;flex-direction:column}
 .cats button small{font-size:12px;color:var(--ink2);font-weight:500}
@@ -628,13 +629,27 @@ function dex(cat) {
   const s = load(), met = metSet(s), c = cat || "a";
   const fs = [...new Set(G.LIST.filter((x) => x.cat === c).map(G.full))];
   const byF = (f) => G.LIST.find((x) => G.full(x) === f);
+  const cnt = (k2) => { const L = [...new Set(G.LIST.filter((x) => x.cat === k2).map(G.full))]; return `${L.filter((f) => met.has(f)).length}/${L.length}`; };
+  const row = (f) => `<div><span>${esc(f)}<small>${esc(byF(f).mean)}</small></span></div>`;
+  const list = () => fs.map((f) => met.has(f) ? row(f) : `<div class="no"><span>？？？（まだ）<small>${esc(G.CATS[c])}のことわざ</small></span></div>`).join("");
   show(`<header><button class="icon" id="back" aria-label="ホームへ">←</button><h1>ことわざ帳<small>出会った ${met.size}/${G.PROVERBS.length}</small></h1><span></span></header>
-    <p class="note" data-a11y-say>出会ったことわざと意味です。まだのものは「？」です。</p>
-    <div class="cats">${Object.entries(G.CATS).map(([k2, n]) => `<button class="sub" data-c="${k2}" aria-pressed="${k2 === c}" style="min-height:48px${k2 === c ? ";border:2px solid var(--shu)" : ""}">${k2 === c ? "● " : ""}${esc(n)}</button>`).join("")}</div>
-    <div class="res">${fs.map((f) => met.has(f) ? `<div><span>${esc(f)}<small>${esc(byF(f).mean)}</small></span></div>` : `<div class="no"><span>？？？（まだ）<small>${esc(G.CATS[c])}のことわざ</small></span></div>`).join("")}</div>
+    <p class="note" data-a11y-say>出会ったことわざと意味です。まだのものは「？」です。言葉・読み・意味でさがせます。</p>
+    <input id="q" type="search" class="find" placeholder="さがす（例：ねこ・急ぐ）" aria-label="出会ったことわざを、言葉・読み・意味でさがす" autocomplete="off">
+    <p class="note" id="qn" role="status"></p>
+    <div class="cats" id="cats">${Object.entries(G.CATS).map(([k2, n]) => `<button class="sub" data-c="${k2}" aria-pressed="${k2 === c}" style="min-height:48px${k2 === c ? ";border:2px solid var(--shu)" : ""}">${k2 === c ? "● " : ""}${esc(n)}<small>${cnt(k2)}</small></button>`).join("")}</div>
+    <div class="res" id="dexres">${list()}</div>
     ${footer()}`);
   $("back").onclick = home;
   document.querySelectorAll(".cats button").forEach((b) => (b.onclick = () => dex(b.dataset.c)));
+  // さがす：出会ったことわざだけから（まだのものは名前を出さない）。読みのゆれ（カタカナ・空白）は kana でそろえる
+  $("q").oninput = () => {
+    const w = G.kana($("q").value.trim());
+    $("cats").hidden = !!w;
+    if (!w) { $("qn").textContent = ""; $("dexres").innerHTML = list(); return; }
+    const hit = [...met].filter((f) => { const x = byF(f); return x && [f, x.yomi, x.mean].some((t) => G.kana(t).includes(w)); });
+    $("qn").textContent = hit.length ? `${hit.length}件${hit.length > 60 ? "（はじめの60件）" : ""}` : "見つかりません（出会ったことわざだけをさがします）";
+    $("dexres").innerHTML = hit.slice(0, 60).map(row).join("");
+  };
 }
 function cal(ym) {
   const s = load(), k = todayKey(), y = ym || k.slice(0, 7), first = y + "-01", lt = lateDays(s);
