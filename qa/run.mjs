@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { checkTransfer } from "./transfer-check.mjs";
+import { checkSwStall } from "./sw-check.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const url = pathToFileURL(path.join(root, "index.html")).href;
@@ -111,6 +112,7 @@ const day = (n) => new Date(Date.parse(G.EPOCH) + n * 864e5).toISOString().slice
   check("変換中の Enter で送らない（isComposing・keyCode 229）", /isComposing \|\| e\.keyCode === 229/.test(html));
   check("Ko-fi はただのリンクだけ（スクリプトを入れない）", !/ko-fi\.com\/widgets|<script[^>]+ko-fi/i.test(html));
   const sw = readFileSync(path.join(root, "sw.js"), "utf8"), shell = JSON.parse(sw.match(/SHELL = (\[[^\]]+\])/)[1].replace(/'/g, '"'));
+  { const st = await checkSwStall(sw); check("PWA：本文の途中で通信が止まっても4秒で保存したものを返す・ふつうはネットの返事", st.ok, JSON.stringify(st)); }
   check("PWA：sw.js の SHELL に画面のファイルが全部ある・取り直して保存する（cache: reload）", ["./", "./index.html", "./data.js", "./game.js", "./transfer.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"].every((f) => shell.includes(f)) && /cache: "reload"/.test(sw));
   const mf = JSON.parse(readFileSync(path.join(root, "manifest.webmanifest"), "utf8"));
   check("PWA：manifest の名前・アイコン（192・512・maskable）", mf.name === "ことわざあわせ" && mf.icons.length === 3 && mf.icons.some((i) => i.purpose === "maskable"));
