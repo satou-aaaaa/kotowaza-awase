@@ -76,6 +76,7 @@ const day = (n) => new Date(Date.parse(G.EPOCH) + n * 864e5).toISOString().slice
   check("同じ問題が次に今日の5問・上級に出るまで、やさしい・ふつうは14日以上、むずかしいは7日以上あく（3年分）", gap[1] >= 14 && gap[2] >= 14 && gap[3] >= 7, JSON.stringify(gap));
   check("1年でいろいろな問題が出る（今日の5問に1年で300問以上）", seenD.size >= 300, seenD.size);
   // 過去と先の日の問題が変わらない（データを足しても・作り方を直しても。F7）。値は 2026-11-07 に作った
+  { let err = ""; try { for (const k of ["2026-11-06", "2026-10-01", "2025-01-01"]) { G.dailyList(k); G.hardList(k); if (G.dayNo(k) !== 1) err = k + " #" + G.dayNo(k); } } catch (e) { err = e.message; } check("時計が第1回より前にずれていても今日の問題が作れる（番号は #1）", !err, err); }
   const snap = createHash("sha256").update(JSON.stringify([...Array(120)].map((_, n) => [G.dailyList(day(n)), G.hardList(day(n))]))).digest("hex").slice(0, 16);
   check("はじめの120日の今日の5問・上級は前と同じ（変えると過去の日の問題が変わる）", snap === "204a86ebce6295d3", snap);
   check("同じ日は何度作っても同じ（日付の種だけで決まる）", JSON.stringify(G.dailyList("2027-05-05")) === JSON.stringify(createRequire(import.meta.url)(path.join(root, "game.js")).dailyList("2027-05-05")));

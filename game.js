@@ -14,7 +14,8 @@
   function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   // 並べかえ（フィッシャー–イェーツ。sort の比較の中で乱数を引かない）
   function shuffle(a, r) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
-  const dayNo = (k) => Math.round((Date.parse(k) - Date.parse(EPOCH)) / 864e5) + 1;
+  // 端末の時計が第1回より前でも 1 に抑える（負の番号で山が作れず止まらないように。第1回以後は変わらない。2026-11-07 CodeRabbit）
+  const dayNo = (k) => Math.max(1, Math.round((Date.parse(k) - Date.parse(EPOCH)) / 864e5) + 1);
 
   // むずかしさごとの山を、周ごとにちがう順に並べ、日の番号の所から取る。同じ日に同じことわざ（欠ける所ちがい）は出さない
   const pools = {};
