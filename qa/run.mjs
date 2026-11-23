@@ -286,6 +286,16 @@ try {
     check("ことわざ帳：消すと元の一覧に戻る", (await p.isVisible("#cats")) && (await p.textContent(".res")).includes("猫に小判"));
     await p.close(); }
 
+  // スマホの「戻る」：ホームから別の画面を開いて戻ると、ゲームから出ずにホームへ（Core.screens.mark・route。shared-workflows routines/ui-rules.md「ページの分け方」6）
+  { const p = await newPage(); await closeHow(p);
+    const r = {}, atHome = async () => (await p.locator("h1.title").isVisible()) && (await p.locator("#go-d").isVisible());
+    await p.click("#go-dex"); r.dex = new URL(p.url()).hash;
+    await p.goBack(); await p.waitForSelector("#go-d", { timeout: 3000 }); r.back1 = p.url() === url; r.home1 = await atHome();
+    await p.click("#go-d"); await p.waitForSelector("#prov"); r.play = new URL(p.url()).hash;
+    await p.goBack(); await p.waitForSelector("#go-d", { timeout: 3000 }); r.back2 = p.url() === url; r.home2 = await atHome();
+    check("スマホの「戻る」：ことわざ帳・遊ぶ画面から戻ると、ゲームのページのままホームに戻る", r.dex === "#dex" && r.play === "#play" && r.back1 && r.back2 && r.home1 && r.home2, JSON.stringify(r));
+    await p.close(); }
+
   // 全部一度で解けた日は Ko-fi の1行（今日の5問を初めて終えたときだけ）
   { const p = await newPage(); await closeHow(p);
     await p.click("#go-d");
