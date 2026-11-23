@@ -572,7 +572,7 @@ html.a11y-say body{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))!i
     // 使い方: 画面を描く関数の最初で Core.screens.mark("dex")（ホームは mark("")）。起動時に一度
     //         Core.screens.route({ dex: book, cal: () => cal(), ach: achView }, home)。
     // 履歴はいつも [ホーム] か [ホーム, #画面] の2つまで（画面から画面へは置き換え、ホームへは戻す）。開き直すとホームから。
-    const views = {};
+    const views = new Map(); // Map にする（# から来た名前で Object の関数を呼ばない。CodeQL js/unvalidated-dynamic-method-call）
     let homeFn = null, pushed = false, skipPop = 0, quiet = false;
     const hashName = () => { try { return decodeURIComponent((location.hash || "").slice(1)); } catch (e) { return ""; } };
     const bare = () => location.pathname + location.search;
@@ -596,14 +596,16 @@ html.a11y-say body{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))!i
       if (skipPop) { skipPop--; return; }
       if (foreign()) return;
       const h = hashName();
-      const fn = (h && views[h]) || homeFn;
-      if (!h || !views[h]) pushed = false;
+      const own = !!h && views.has(h);
+      if (!own) pushed = false;
+      // CodeQL js/unvalidated-dynamic-method-call：# から選んだものは has で確かめ、関数かどうかも見てから呼ぶ
+      const fn = own ? views.get(h) : homeFn;
       quiet = true;
-      try { if (fn) fn(); } finally { quiet = false; }
+      try { if (typeof fn === "function") fn(); } finally { quiet = false; }
     }
     function route(map, home) {
       if (all().length) return;
-      Object.assign(views, map || {});
+      for (const k of Object.keys(map || {})) if (typeof map[k] === "function") views.set(k, map[k]);
       // 何度呼んでもよい（ゲームの home() の最初で呼ぶ）。# を消すのは最初の1回だけ（開き直したらホームから。途中の回は続きから出る）
       if (!homeFn) { addEventListener("popstate", onPop); if (hashName() && !foreign()) try { history.replaceState(null, "", bare()); } catch (e) { /* 使えない */ } }
       homeFn = home;
@@ -800,6 +802,7 @@ function show(html) { VIEW++; app.innerHTML = html; bindFooter(); window.scrollT
 
 // ---- ホーム ----
 function home() {
+  Core.screens.route({ practice: practiceMenu, ach, dex: () => dex(), cal: () => cal() }, home); Core.screens.mark("");
   const s = load(), k = todayKey(), done = s.days[k], hdone = s.hdays[k];
   for (const m of ["d", "h"]) { const r = s.runs[m]; if (r && r.res.length >= r.list.length) return finish(m); } // 日付が変わっても、解き終えた回は記録してから次へ（2026-11-07 CodeRabbit）
   const met = metSet(s).size, nr = nextRank(met), due = dueRev(s).length;
@@ -832,6 +835,7 @@ function home() {
   if (!s.tut) firstPlay();
 }
 function practiceMenu() {
+  Core.screens.mark("practice");
   const s = load(), met = metSet(s);
   const cnt = (c) => { const fs = new Set(G.LIST.filter((x) => !c || x.cat === c).map(G.full)); return `${[...fs].filter((f) => met.has(f)).length}/${fs.size}`; };
   show(`<header><button class="icon" id="back" aria-label="もどる">←</button><h1>練習<small>何度でも・今日の記録には入りません</small></h1><span></span></header>
@@ -900,6 +904,7 @@ function play(key) {
   if (!x) { toast("問題を読めませんでした"); return home(); }
   const sv = run.cur && run.cur.i === i ? run.cur : null;
   cur = { key, mode: run.mode, i, rid: run.id, x, m: sv ? +sv.m || 0 : 0, h: sv ? Math.min(2, +sv.h || 0) : 0, gone: sv && Array.isArray(sv.gone) ? sv.gone.filter((w) => typeof w === "string") : [], done: false, hard: run.mode === "h" };
+  Core.screens.mark("play");
   const n = run.mode === "e" ? `${i + 1}問目・一度で ${run.n1 || 0}` : `${i + 1}/${run.list.length}`;
   show(`
     <header><button class="icon" id="back" aria-label="もどる">←</button>
@@ -1009,6 +1014,7 @@ const sq = (r) => ["", "🟧", "🟨", "🟩"][G.starsOf(r)];
 function shareText(mode, k, rec) { return `ことわざあわせ${mode === "h" ? " 上級" : ""} #${G.dayNo(k)} ${md(k)}\n${rec.r.map(sq).join("")}${rec.r.every(one) ? " 全部一度で" : ""}`; }
 function untilNext() { const n = jstNow(), ms = 864e5 - (n.getTime() % 864e5); return `${Math.floor(ms / 36e5)}時間${Math.floor((ms % 36e5) / 6e4)}分`; }
 function result(mode, k, first, prec, fresh, run) {
+  Core.screens.mark("result");
   const s = load();
   const rec = mode === "d" ? s.days[k] || prec : mode === "h" ? s.hdays[k] || prec : prec;
   if (!rec || !okRec(rec)) return home();
@@ -1048,6 +1054,7 @@ function result(mode, k, first, prec, fresh, run) {
 
 // ---- 実績・ことわざ帳・カレンダー ----
 function ach() {
+  Core.screens.mark("ach");
   const L = achList(load());
   show(`<header><button class="icon" id="back" aria-label="ホームへ">←</button><h1>実績<small>${L.filter((a) => a.done).length}/${L.length}</small></h1><span></span></header>
     <p class="note" data-a11y-say>取った実績は ★、まだの実績は ☆ と進み具合です。</p>
@@ -1056,6 +1063,7 @@ function ach() {
   $("back").onclick = home;
 }
 function dex(cat) {
+  Core.screens.mark("dex");
   const s = load(), met = metSet(s), c = cat || "a";
   const fs = [...new Set(G.LIST.filter((x) => x.cat === c).map(G.full))];
   const byF = (f) => G.LIST.find((x) => G.full(x) === f);
@@ -1082,6 +1090,7 @@ function dex(cat) {
   };
 }
 function cal(ym) {
+  Core.screens.mark("cal");
   const s = load(), k = todayKey(), y = ym || k.slice(0, 7), first = y + "-01", lt = lateDays(s);
   const dow = new Date(first + "T00:00:00Z").getUTCDay(), days = new Date(Date.UTC(+y.slice(0, 4), +y.slice(5, 7), 0)).getUTCDate();
   const prev = new Date(Date.UTC(+y.slice(0, 4), +y.slice(5, 7) - 2, 1)).toISOString().slice(0, 7), next = new Date(Date.UTC(+y.slice(0, 4), +y.slice(5, 7), 1)).toISOString().slice(0, 7);
